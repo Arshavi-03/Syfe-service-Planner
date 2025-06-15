@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Goal, Contribution, Currency, DashboardStats } from '@/lib/types';
 import { LOCAL_STORAGE_KEYS } from '@/lib/constants';
 import { generateId, convertCurrency, calculateProgress } from '@/lib/utils';
@@ -13,14 +13,24 @@ interface UseGoalsReturn {
   addContribution: (goalId: string, amount: number, date: Date, note?: string) => void;
   getDashboardStats: (exchangeRates?: { INR: number; USD: number }) => DashboardStats;
   updateGoal: (goalId: string, updates: Partial<Omit<Goal, 'id' | 'contributions' | 'createdAt'>>) => void;
+  refreshGoals: () => void; // New function for force refresh
+  lastUpdated: number; // Timestamp for tracking changes
+  goalStats: DashboardStats; // Memoized stats for better performance
 }
 
 export function useGoals(): UseGoalsReturn {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<number>(Date.now());
 
-  // Load goals from localStorage on mount
-  useEffect(() => {
+  // Force update timestamp whenever goals change
+  const triggerUpdate = useCallback(() => {
+    setLastUpdated(Date.now());
+  }, []);
+
+  // Load goals from localStorage
+  const loadGoalsFromStorage = useCallback(() => {
+    setLoading(true);
     try {
       const savedGoals = localStorage.getItem(LOCAL_STORAGE_KEYS.GOALS);
       if (savedGoals) {
@@ -38,24 +48,42 @@ export function useGoals(): UseGoalsReturn {
           })),
         }));
         setGoals(parsedGoals);
+        triggerUpdate();
+      } else {
+        setGoals([]);
       }
     } catch (error) {
       console.error('Error loading goals from localStorage:', error);
+      setGoals([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [triggerUpdate]);
+
+  // Load goals from localStorage on mount
+  useEffect(() => {
+    loadGoalsFromStorage();
+  }, [loadGoalsFromStorage]);
 
   // Save goals to localStorage whenever goals change
   useEffect(() => {
-    if (!loading) {
+    if (!loading && goals.length >= 0) { // Allow empty arrays to be saved
       try {
         localStorage.setItem(LOCAL_STORAGE_KEYS.GOALS, JSON.stringify(goals));
+        triggerUpdate();
       } catch (error) {
         console.error('Error saving goals to localStorage:', error);
       }
     }
-  }, [goals, loading]);
+  }, [goals, loading, triggerUpdate]);
+
+  // Refresh goals function - force reload from localStorage
+  const refreshGoals = useCallback(() => {
+    // Add small delay to ensure any pending localStorage writes complete
+    setTimeout(() => {
+      loadGoalsFromStorage();
+    }, 50);
+  }, [loadGoalsFromStorage]);
 
   const addGoal = useCallback((name: string, targetAmount: number, currency: Currency) => {
     const newGoal: Goal = {
@@ -69,20 +97,32 @@ export function useGoals(): UseGoalsReturn {
       updatedAt: new Date(),
     };
 
-    setGoals(prev => [...prev, newGoal]);
-  }, []);
+    setGoals(prev => {
+      const updated = [...prev, newGoal];
+      triggerUpdate();
+      return updated;
+    });
+  }, [triggerUpdate]);
 
   const deleteGoal = useCallback((goalId: string) => {
-    setGoals(prev => prev.filter(goal => goal.id !== goalId));
-  }, []);
+    setGoals(prev => {
+      const updated = prev.filter(goal => goal.id !== goalId);
+      triggerUpdate();
+      return updated;
+    });
+  }, [triggerUpdate]);
 
   const updateGoal = useCallback((goalId: string, updates: Partial<Omit<Goal, 'id' | 'contributions' | 'createdAt'>>) => {
-    setGoals(prev => prev.map(goal => 
-      goal.id === goalId 
-        ? { ...goal, ...updates, updatedAt: new Date() }
-        : goal
-    ));
-  }, []);
+    setGoals(prev => {
+      const updated = prev.map(goal => 
+        goal.id === goalId 
+          ? { ...goal, ...updates, updatedAt: new Date() }
+          : goal
+      );
+      triggerUpdate();
+      return updated;
+    });
+  }, [triggerUpdate]);
 
   const addContribution = useCallback((goalId: string, amount: number, date: Date, note?: string) => {
     const contribution: Contribution = {
@@ -92,19 +132,23 @@ export function useGoals(): UseGoalsReturn {
       note,
     };
 
-    setGoals(prev => prev.map(goal => {
-      if (goal.id === goalId) {
-        const newCurrentAmount = goal.currentAmount + amount;
-        return {
-          ...goal,
-          currentAmount: newCurrentAmount,
-          contributions: [...goal.contributions, contribution],
-          updatedAt: new Date(),
-        };
-      }
-      return goal;
-    }));
-  }, []);
+    setGoals(prev => {
+      const updated = prev.map(goal => {
+        if (goal.id === goalId) {
+          const newCurrentAmount = goal.currentAmount + amount;
+          return {
+            ...goal,
+            currentAmount: newCurrentAmount,
+            contributions: [...goal.contributions, contribution],
+            updatedAt: new Date(),
+          };
+        }
+        return goal;
+      });
+      triggerUpdate();
+      return updated;
+    });
+  }, [triggerUpdate]);
 
   const getDashboardStats = useCallback((exchangeRates?: { INR: number; USD: number }): DashboardStats => {
     const defaultRates = { INR: 83, USD: 1 };
@@ -149,13 +193,35 @@ export function useGoals(): UseGoalsReturn {
     };
   }, [goals]);
 
+  // Memoized dashboard stats for better performance and reactivity
+  const goalStats = useMemo(() => {
+    return getDashboardStats();
+  }, [getDashboardStats, lastUpdated]); // Include lastUpdated to ensure recalculation
+
+  // Enhanced goals with computed properties for better reactivity
+  const enhancedGoals = useMemo(() => {
+    return goals.map(goal => ({
+      ...goal,
+      progress: calculateProgress(goal.currentAmount, goal.targetAmount),
+      isCompleted: goal.currentAmount >= goal.targetAmount,
+      remainingAmount: Math.max(0, goal.targetAmount - goal.currentAmount),
+      contributionCount: goal.contributions.length,
+      lastContributionDate: goal.contributions.length > 0 
+        ? goal.contributions[goal.contributions.length - 1].date
+        : null,
+    }));
+  }, [goals, lastUpdated]);
+
   return {
-    goals,
+    goals: enhancedGoals,
     loading,
     addGoal,
     deleteGoal,
     addContribution,
     getDashboardStats,
     updateGoal,
+    refreshGoals,
+    lastUpdated,
+    goalStats,
   };
 }

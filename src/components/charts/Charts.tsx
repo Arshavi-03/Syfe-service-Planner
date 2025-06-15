@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, CSSProperties } from 'react';
+import React, { useState, useEffect, useMemo, CSSProperties } from 'react';
 import { 
   AreaChart, 
   Area, 
@@ -164,28 +164,33 @@ export const SavingsProgressChart: React.FC = () => {
   
   const isDark = mounted ? theme === 'dark' : false;
   
-  // Use only real data or empty data
-  const savingsProgressData = goals && goals.length > 0 ? 
-    (() => {
-      const totalCurrent = goals.reduce((sum, goal) => sum + goal.currentAmount, 0);
-      const totalTarget = goals.reduce((sum, goal) => sum + goal.targetAmount, 0);
-      
-      if (totalCurrent === 0 && totalTarget === 0) {
-        return emptyAreaData;
-      }
+  // Memoize data to ensure updates when goals change
+  const savingsProgressData = useMemo(() => {
+    if (!goals || goals.length === 0) {
+      return emptyAreaData;
+    }
 
-      // Show current state as final month only
-      return [
-        { month: 'Jan', saved: 0, target: 0 },
-        { month: 'Feb', saved: 0, target: 0 },
-        { month: 'Mar', saved: 0, target: 0 },
-        { month: 'Apr', saved: 0, target: 0 },
-        { month: 'May', saved: 0, target: 0 },
-        { month: 'Jun', saved: totalCurrent, target: totalTarget },
-      ];
-    })() : emptyAreaData;
+    const totalCurrent = goals.reduce((sum, goal) => sum + goal.currentAmount, 0);
+    const totalTarget = goals.reduce((sum, goal) => sum + goal.targetAmount, 0);
+    
+    if (totalCurrent === 0 && totalTarget === 0) {
+      return emptyAreaData;
+    }
 
-  const hasData = goals && goals.length > 0 && goals.some(goal => goal.currentAmount > 0 || goal.targetAmount > 0);
+    // Show current state as final month only
+    return [
+      { month: 'Jan', saved: 0, target: 0 },
+      { month: 'Feb', saved: 0, target: 0 },
+      { month: 'Mar', saved: 0, target: 0 },
+      { month: 'Apr', saved: 0, target: 0 },
+      { month: 'May', saved: 0, target: 0 },
+      { month: 'Jun', saved: totalCurrent, target: totalTarget },
+    ];
+  }, [goals]);
+
+  const hasData = useMemo(() => 
+    goals && goals.length > 0 && goals.some(goal => goal.currentAmount > 0 || goal.targetAmount > 0)
+  , [goals]);
 
   return (
     <div className="relative">
@@ -298,8 +303,10 @@ export const GoalDistributionChart: React.FC = () => {
   }, []);
 
   const isDark = mounted ? theme === 'dark' : false;
-  const goalDistributionData = generateGoalDistributionData(goals);
-  const hasGoals = goals && goals.length > 0;
+  
+  // Memoize data to ensure updates when goals change
+  const goalDistributionData = useMemo(() => generateGoalDistributionData(goals), [goals]);
+  const hasGoals = useMemo(() => goals && goals.length > 0, [goals]);
 
   return (
     <div className="space-y-6">
@@ -439,7 +446,7 @@ export const GoalDistributionChart: React.FC = () => {
                 };
 
                 return (
-                  <div key={`real-goal-${item.name}-${index}`} className={`p-3 rounded-lg border transition-all hover:shadow-md ${
+                  <div key={`real-goal-${item.name}-${index}-${item.current}`} className={`p-3 rounded-lg border transition-all hover:shadow-md ${
                     isDark ? 'bg-gray-800/30 border-gray-700 hover:bg-gray-800/50' : 'bg-gray-50/50 border-gray-200 hover:bg-gray-100/50'
                   }`}>
                     <div className="flex items-center justify-between mb-2">
@@ -497,7 +504,7 @@ export const GoalDistributionChart: React.FC = () => {
           }`}>
             <div className="text-center">
               <div className={`text-lg font-bold ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
-                {goals.length}
+                {goals?.length || 0}
               </div>
               <div className={`text-xs font-medium ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
                 Goals
@@ -505,7 +512,7 @@ export const GoalDistributionChart: React.FC = () => {
             </div>
             <div className="text-center">
               <div className={`text-lg font-bold ${isDark ? 'text-green-400' : 'text-green-600'}`}>
-                {goals.filter(goal => (goal.currentAmount / goal.targetAmount) >= 1).length}
+                {goals?.filter(goal => (goal.currentAmount / goal.targetAmount) >= 1).length || 0}
               </div>
               <div className={`text-xs font-medium ${isDark ? 'text-green-300' : 'text-green-700'}`}>
                 Completed
@@ -513,7 +520,7 @@ export const GoalDistributionChart: React.FC = () => {
             </div>
             <div className="text-center">
               <div className={`text-lg font-bold ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>
-                {goals.length > 0 ? (goals.reduce((sum, goal) => sum + (goal.currentAmount / goal.targetAmount), 0) / goals.length * 100).toFixed(0) : 0}%
+                {goals && goals.length > 0 ? (goals.reduce((sum, goal) => sum + (goal.currentAmount / goal.targetAmount), 0) / goals.length * 100).toFixed(0) : 0}%
               </div>
               <div className={`text-xs font-medium ${isDark ? 'text-purple-300' : 'text-purple-700'}`}>
                 Avg Progress
@@ -537,27 +544,32 @@ export const MonthlyContributionsChart: React.FC = () => {
   
   const isDark = mounted ? theme === 'dark' : false;
   
-  // Use only real data or empty data - no sample data
-  const monthlyContributionsData = goals && goals.length > 0 ? 
-    (() => {
-      const totalSaved = goals.reduce((sum, goal) => sum + goal.currentAmount, 0);
-      
-      if (totalSaved === 0) {
-        return emptyBarData;
-      }
+  // Memoize data to ensure updates when goals change
+  const monthlyContributionsData = useMemo(() => {
+    if (!goals || goals.length === 0) {
+      return emptyBarData;
+    }
 
-      // Show current total in the last month only
-      return [
-        { month: 'Jan', amount: 0 },
-        { month: 'Feb', amount: 0 },
-        { month: 'Mar', amount: 0 },
-        { month: 'Apr', amount: 0 },
-        { month: 'May', amount: 0 },
-        { month: 'Jun', amount: totalSaved },
-      ];
-    })() : emptyBarData;
+    const totalSaved = goals.reduce((sum, goal) => sum + goal.currentAmount, 0);
+    
+    if (totalSaved === 0) {
+      return emptyBarData;
+    }
 
-  const hasData = goals && goals.length > 0 && goals.some(goal => goal.currentAmount > 0);
+    // Show current total in the last month only
+    return [
+      { month: 'Jan', amount: 0 },
+      { month: 'Feb', amount: 0 },
+      { month: 'Mar', amount: 0 },
+      { month: 'Apr', amount: 0 },
+      { month: 'May', amount: 0 },
+      { month: 'Jun', amount: totalSaved },
+    ];
+  }, [goals]);
+
+  const hasData = useMemo(() => 
+    goals && goals.length > 0 && goals.some(goal => goal.currentAmount > 0)
+  , [goals]);
   
   return (
     <div className="space-y-6">
@@ -830,8 +842,10 @@ export const GoalCompletionChart: React.FC = () => {
   }, []);
   
   const isDark = mounted ? theme === 'dark' : false;
-  const goalCompletionData = generateGoalCompletionData(goals);
-  const hasGoals = goals && goals.length > 0;
+  
+  // Memoize data to ensure updates when goals change
+  const goalCompletionData = useMemo(() => generateGoalCompletionData(goals), [goals]);
+  const hasGoals = useMemo(() => goals && goals.length > 0, [goals]);
 
   if (!hasGoals) {
     return (
@@ -867,7 +881,7 @@ export const GoalCompletionChart: React.FC = () => {
         };
 
         return (
-          <div key={index} className="space-y-3">
+          <div key={`${goal.goal}-${goal.current}-${index}`} className="space-y-3">
             <div className="flex justify-between items-center">
               <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                 {goal.goal}

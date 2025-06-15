@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, CSSProperties } from 'react';
 import { 
   AreaChart, 
   Area, 
@@ -53,13 +53,17 @@ const emptyPieData = [
 
 interface CustomTooltipProps {
   active?: boolean;
-  payload?: any[];
+  payload?: Array<{
+    color: string;
+    dataKey: string;
+    value: number | string;
+  }>;
   label?: string;
 }
 
 const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
-    const tooltipStyles = {
+    const tooltipStyle: CSSProperties = {
       background: 'rgba(30, 41, 59, 0.95)',
       backdropFilter: 'blur(20px)',
       WebkitBackdropFilter: 'blur(20px)',
@@ -70,13 +74,13 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label })
     return (
       <div 
         className="rounded-xl p-4 shadow-2xl border"
-        style={tooltipStyles}
+        style={tooltipStyle}
       >
         <p className="text-sm font-semibold text-white mb-3 border-b border-white/30 pb-2">
           {label}
         </p>
         {payload.map((pld, index) => {
-          const dotStyles = {
+          const dotStyle: CSSProperties = {
             backgroundColor: pld.color,
             boxShadow: `0 0 10px ${pld.color}40`
           };
@@ -85,7 +89,7 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label })
             <div key={index} className="flex items-center gap-3 text-sm mb-2 last:mb-0">
               <div 
                 className="w-4 h-4 rounded-full shadow-lg"
-                style={dotStyles}
+                style={dotStyle}
               />
               <span className="text-slate-300 capitalize font-medium">
                 {pld.dataKey}:
@@ -322,7 +326,7 @@ export const GoalDistributionChart: React.FC = () => {
               stroke="#ffffff"
             >
               {goalDistributionData.map((entry, index) => {
-                const cellStyles = {
+                const cellStyle: CSSProperties = {
                   filter: hasGoals ? 'drop-shadow(0 4px 8px rgba(0,0,0,0.1))' : 'none',
                 };
 
@@ -330,7 +334,7 @@ export const GoalDistributionChart: React.FC = () => {
                   <Cell 
                     key={`cell-${index}`} 
                     fill={`url(#pieGradient${index})`}
-                    style={cellStyles}
+                    style={cellStyle}
                   />
                 );
               })}
@@ -340,7 +344,7 @@ export const GoalDistributionChart: React.FC = () => {
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
                     const data = payload[0].payload;
-                    const tooltipStyles = {
+                    const tooltipStyle: CSSProperties = {
                       background: 'rgba(30, 41, 59, 0.95)',
                       backdropFilter: 'blur(20px)',
                       WebkitBackdropFilter: 'blur(20px)',
@@ -348,7 +352,7 @@ export const GoalDistributionChart: React.FC = () => {
                       boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
                     };
 
-                    const colorStyles = {
+                    const colorStyle: CSSProperties = {
                       backgroundColor: data.color,
                       boxShadow: `0 0 10px ${data.color}40`
                     };
@@ -356,12 +360,12 @@ export const GoalDistributionChart: React.FC = () => {
                     return (
                       <div 
                         className="rounded-xl p-4 shadow-2xl border"
-                        style={tooltipStyles}
+                        style={tooltipStyle}
                       >
                         <div className="flex items-center gap-3 mb-3">
                           <div 
                             className="w-4 h-4 rounded-full"
-                            style={colorStyles}
+                            style={colorStyle}
                           />
                           <span className="font-semibold text-white">
                             {data.name}
@@ -420,17 +424,17 @@ export const GoalDistributionChart: React.FC = () => {
             {goalDistributionData
               .filter(item => item.name !== 'No goals yet')
               .map((item, index) => {
-                const colorStyles = {
+                const colorStyle: CSSProperties = {
                   backgroundColor: item.color
                 };
 
-                const progressBarStyles = {
+                const progressBarStyle: CSSProperties = {
                   width: `${Math.min(item.progress || 0, 100)}%`,
                   backgroundColor: item.color,
                   boxShadow: `0 0 8px ${item.color}40`
                 };
 
-                const textColorStyles = {
+                const textColorStyle: CSSProperties = {
                   color: item.color
                 };
 
@@ -442,7 +446,7 @@ export const GoalDistributionChart: React.FC = () => {
                       <div className="flex items-center gap-3">
                         <div 
                           className="w-4 h-4 rounded-full shadow-sm"
-                          style={colorStyles}
+                          style={colorStyle}
                         />
                         <span className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
                           {item.name}
@@ -453,7 +457,7 @@ export const GoalDistributionChart: React.FC = () => {
                           {item.value}%
                         </span>
                         <div className="flex items-center gap-1">
-                          <span className="text-xs font-bold" style={textColorStyles}>
+                          <span className="text-xs font-bold" style={textColorStyle}>
                             {item.progress?.toFixed(0) || '0'}%
                           </span>
                           {(item.progress || 0) >= 100 && (
@@ -469,7 +473,7 @@ export const GoalDistributionChart: React.FC = () => {
                     }`}>
                       <div 
                         className="h-full rounded-full transition-all duration-500"
-                        style={progressBarStyles}
+                        style={progressBarStyle}
                       />
                     </div>
                     
@@ -610,10 +614,7 @@ export const MonthlyContributionsChart: React.FC = () => {
               radius={[8, 8, 0, 0]}
               stroke="none"
               strokeWidth={0}
-              style={{
-                filter: hasData ? 'drop-shadow(0 4px 8px rgba(16, 185, 129, 0.3))' : 'none',
-                cursor: hasData ? 'pointer' : 'default'
-              }}
+              className={hasData ? 'drop-shadow-lg hover:cursor-pointer' : ''}
             />
           </BarChart>
         </ResponsiveContainer>
@@ -855,13 +856,13 @@ export const GoalCompletionChart: React.FC = () => {
   return (
     <div className="space-y-6 p-4">
       {goalCompletionData.map((goal, index) => {
-        const progressBarStyles = {
+        const progressBarStyle: CSSProperties = {
           width: `${Math.min(goal.completion, 100)}%`,
           background: `linear-gradient(90deg, ${goal.color} 0%, ${goal.color}dd 100%)`,
           boxShadow: `0 0 10px ${goal.color}40`
         };
 
-        const progressColorStyles = {
+        const progressColorStyle: CSSProperties = {
           color: goal.color
         };
 
@@ -872,7 +873,7 @@ export const GoalCompletionChart: React.FC = () => {
                 {goal.goal}
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-bold" style={progressColorStyles}>
+                <span className="text-sm font-bold" style={progressColorStyle}>
                   {goal.completion.toFixed(0)}%
                 </span>
                 {goal.completion >= 100 && (
@@ -884,7 +885,7 @@ export const GoalCompletionChart: React.FC = () => {
             <div className={`w-full rounded-full h-3 shadow-inner ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
               <div
                 className="h-3 rounded-full transition-all duration-1000 ease-out shadow-lg"
-                style={progressBarStyles}
+                style={progressBarStyle}
               />
             </div>
             

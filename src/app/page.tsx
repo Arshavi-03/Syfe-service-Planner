@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, CSSProperties } from 'react';
 import { 
   TrendingUp, 
   Target, 
@@ -31,7 +31,7 @@ import { useExchangeRate } from '@/hooks/useExchangeRate';
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const { goals } = useGoals();
-  const { exchangeRate } = useExchangeRate();
+  const {  } = useExchangeRate();
   
   // Calculate real statistics from goals
   const calculateRealStats = () => {
@@ -187,18 +187,24 @@ export default function HomePage() {
             {/* REMOVED HARDCODED LIST - Only show real goal data */}
             {getGoalDistributionLegend().length > 0 && (
               <div className="mt-4 space-y-2">
-                {getGoalDistributionLegend().map((item) => (
-                  <div key={item.name} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: item.color }}
-                      />
-                      <span className="text-[var(--muted-foreground)]">{item.name}</span>
+                {getGoalDistributionLegend().map((item) => {
+                  const colorStyle: CSSProperties = {
+                    backgroundColor: item.color
+                  };
+
+                  return (
+                    <div key={item.name} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full"
+                          style={colorStyle}
+                        />
+                        <span className="text-[var(--muted-foreground)]">{item.name}</span>
+                      </div>
+                      <span className="font-medium text-[var(--foreground)]">{item.value}%</span>
                     </div>
-                    <span className="font-medium text-[var(--foreground)]">{item.value}%</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             {/* Show message when no goals */}
@@ -252,7 +258,7 @@ export default function HomePage() {
           <CardContent className="space-y-4">
             {/* Show real activities based on goals */}
             {goals && goals.length > 0 ? (
-              goals.slice(0, 4).map((goal, index) => (
+              goals.slice(0, 4).map((goal) => (
                 <div key={goal.id} className="flex items-start gap-3 p-3 rounded-lg bg-[var(--accent)] border border-[var(--border)] hover:bg-[var(--muted)] transition-colors duration-200">
                   <div className={`p-2 rounded-lg ${
                     goal.currentAmount > 0 
